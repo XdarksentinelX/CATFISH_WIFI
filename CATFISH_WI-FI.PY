@@ -6,6 +6,23 @@ import time
 width = os.get_terminal_size().columns
 
 
+def scan_wifi():
+    results_wifi = subprocess.run(
+        ["nmcli", "device", "wifi", "list"],
+        capture_output=True,
+        text=True
+    )
+
+    wifi_list = results_wifi.stdout.splitlines()
+    all_intercepted_networks = []
+
+    for line in wifi_list[1:]:
+        fields = line.split()
+        all_intercepted_networks.append(fields)
+
+    return all_intercepted_networks
+
+
 def display_networks(all_intercepted_networks):
 
     print(" CATFISH WI-FI ".center(width, "="))
@@ -30,37 +47,14 @@ def display_networks(all_intercepted_networks):
 
 while True:
     os.system("clear")
-    results_wifi = subprocess.run(
-        ["nmcli", "device", "wifi", "list"],
-        capture_output=True,
-        text=True
-    )
-    
-    wifi_list = results_wifi.stdout.splitlines()
 
-    all_intercepted_networks = []
+    all_intercepted_networks = scan_wifi()
 
-    for line in wifi_list[1:]:
-        fields = line.split()
-        all_intercepted_networks.append(fields)
-        
     display_networks(all_intercepted_networks)
 
     time.sleep(0.5)
-    
-    
-        # ==========DEBUG==========
-        
-    # print("  NETWORK  ".center(width, "="))
-    # print(fields[1].center(width))
-    # print("".center(width, "."))
-    # print(f"SSID: {fields[1]}")
-    # print(f"BSSID: {fields[0]}")
-    # print(f"CHANNEL: {fields[3]}")
-    # print(f"RATE: {fields[4]}")
-    # print(f"MBIT/S: {fields[5]}")
-    # print(f"SIGNAL: {fields[6]}")
-    # print(f"SEC: {fields[8]}")
-#    con=sqlite3.connect("/home/dark/Desktop/CATFISH_WIFI/DATABASE/catfish.db")
-#    cur = con.cursor()
-#    cur.execute("CREATE TABLE networks(SSID , BSSID , CHANNEL , RATE , SEC )")
+
+
+# ========== DEBUG ==========
+# print("NETWORK".center(width, "="))
+# print(fields[1].center(width))
