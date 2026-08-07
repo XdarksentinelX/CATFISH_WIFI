@@ -4,7 +4,8 @@ import sqlite3
 import time
 
 width = os.get_terminal_size().columns
-
+ def scan_gps():
+     
 
 def scan_wifi():
     results_wifi = subprocess.run(
