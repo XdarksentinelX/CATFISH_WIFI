@@ -16,14 +16,14 @@ def scan_gps():
             altitude = gps_fields[9]
             return latitude, latitude_direction, longitude, longitude_direction, fix, satellites, altitude
 
-def display_gps(gps_data):
+def display_gps(gps_data, lat_decimal, longi_decimal):
     latitude, latitude_direction, longitude, longitude_direction, fix, satellites, altitude = gps_data
 
 
     print("===== GPS =====")
     if fix == "1":
-        print(f"Latitude:   {latitude} {latitude_direction}")
-        print(f"Longitude:  {longitude} {longitude_direction}")
+        print(f"Latitude:   {lat_decimal:.6f} {latitude_direction}")
+        print(f"Longitude:  {longi_decimal:.6f} {longitude_direction}")
         print(f"Fix:        {fix}")
         print(f"Satellites: {satellites}")
         print(f"Altitude:   {altitude} m")
@@ -31,15 +31,18 @@ def display_gps(gps_data):
     else:
         print("NO SIGNAL WAITING FOR GPS FIX")
 def convert_coordinates(latitude, longitude):
-    #konwersja latitude
+    # konwersja latitude
     lat_degrees = int(latitude[0:2])
     lat_minutes = float(latitude[2:])
-    #konwersja longitude
-    longi_degrees =int(longitude[0:3])
+
+    # konwersja longitude
+    longi_degrees = int(longitude[0:3])
     longi_minutes = float(longitude[3:])
-    #wzór
+
+    # wzór
     lat_decimal = lat_degrees + (lat_minutes / 60)
-    logi_decimal = longi_degrees + (longi_minutes / 60)
+    longi_decimal = longi_degrees + (longi_minutes / 60)
+
     return lat_decimal, longi_decimal
 gps_data = scan_gps()
 
@@ -47,4 +50,4 @@ latitude, latitude_direction, longitude, longitude_direction, fix, satellites, a
 
 lat_decimal, longi_decimal = convert_coordinates(latitude, longitude)
 
-display_gps(gps_data)
+display_gps(gps_data, lat_decimal, longi_decimal)
