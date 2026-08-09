@@ -3,9 +3,47 @@ import os
 import sqlite3
 import time
 
+
 width = os.get_terminal_size().columns
- #def scan_gps():
-     
+
+##########################################################
+#FUNKCJE 
+##########################################################
+
+
+def init_database():
+    connection= sqlite3.connect("DATABASES/catfish.db")
+    cursor= connection.cursor()
+    cursor.execute("""CREATE TABLE IF NOT EXISTS networks (
+    id,
+    ssid,
+    bssid,
+    channel,
+    signal,
+    security,
+    latitude,
+    longitude,
+    altitude,
+    timestamp
+)""")
+    connection.commit()
+    return connection 
+
+
+def store_data(connection_database,all_intercepted_networks,lat_decimal, longi_decimal):
+    for network in all_intercepted_networks:
+     ssid= network[1]
+     bssid= network[0]
+     channel= network[3]
+     signal= network[6]
+     security=network[8:]
+     cursor= connection_database.cursor()
+     cursor.execute(
+    """INSERT INTO networks
+    (ssid, bssid, channel, signal, security)
+    VALUES (?, ?, ?, ?, ?)""",
+    (ssid, bssid, channel, signal, ' '.join(security))
+)
 
 def scan_wifi():
     results_wifi = subprocess.run(
@@ -24,15 +62,93 @@ def scan_wifi():
     return all_intercepted_networks
 
 
+def scan_gps():
+    gps_file = open("/dev/ttyACM0")
+
+    while True:
+        gps_line = gps_file.readline()
+
+        if gps_line.startswith("$GPGGA"):
+            gps_fields = gps_line.split(",")
+
+            latitude = gps_fields[2]
+            latitude_direction = gps_fields[3]
+
+            longitude = gps_fields[4]
+            longitude_direction = gps_fields[5]
+
+            fix = gps_fields[6]
+            satellites = gps_fields[7]
+            altitude = gps_fields[9]
+
+            return (
+                latitude,
+                latitude_direction,
+                longitude,
+                longitude_direction,
+                fix,
+                satellites,
+                altitude
+            )
+
+
+def convert_coordinates(latitude, longitude):
+    # Konwersja latitude
+    lat_degrees = int(latitude[0:2])
+    lat_minutes = float(latitude[2:])
+
+    # Konwersja longitude
+    longi_degrees = int(longitude[0:3])
+    longi_minutes = float(longitude[3:])
+
+    # Wzór
+    lat_decimal = lat_degrees + (lat_minutes / 60)
+    longi_decimal = longi_degrees + (longi_minutes / 60)
+
+    return lat_decimal, longi_decimal
+
+
+def display_gps(gps_data, lat_decimal=None, longi_decimal=None):
+    (
+        latitude,
+        latitude_direction,
+        longitude,
+        longitude_direction,
+        fix,
+        satellites,
+        altitude
+    ) = gps_data
+
+    print("===== GPS =====")
+
+    if fix == "1":
+        print(f"Latitude:   {lat_decimal:.6f} {latitude_direction}")
+        print(f"Longitude:  {longi_decimal:.6f} {longitude_direction}")
+        print(f"Fix:        {fix}")
+        print(f"Satellites: {satellites}")
+        print(f"Altitude:   {altitude} m")
+    else:
+        print("NO SIGNAL WAITING FOR GPS FIX")
+
+
 def display_networks(all_intercepted_networks):
 
     print(" CATFISH WI-FI ".center(width, "="))
     print(" CREATED BY DARK SENTINEL ".center(width, "="))
 
-    print(f"{'SSID':<25}{'BSSID':<20}{'CH':<4}{'RATE':<12}{'SIGNAL':<8}{'SECURITY'}")
+    print(
+        f"{'SSID':<25}"
+        f"{'BSSID':<20}"
+        f"{'CH':<4}"
+        f"{'RATE':<12}"
+        f"{'SIGNAL':<8}"
+        f"{'SECURITY'}"
+    )
+
     print("-".center(width, "-"))
 
     for every_network in all_intercepted_networks:
+
         if every_network[0] == "*":
             continue
 
@@ -45,17 +161,57 @@ def display_networks(all_intercepted_networks):
             f"{' '.join(every_network[8:])}"
         )
 
+connection_database= init_database()
+##########################################################
+#PĘTLA
+##########################################################
 
 while True:
+
     os.system("clear")
 
+    # Skan Wi-Fi
     all_intercepted_networks = scan_wifi()
 
+    # Skan GPS
+    gps_data = scan_gps()
+
+    (
+        latitude,
+        latitude_direction,
+        longitude,
+        longitude_direction,
+        fix,
+        satellites,
+        altitude
+    ) = gps_data
+
+    # Konwersja współrzędnych tylko gdy GPS ma FIX
+    if fix == "1":
+
+        lat_decimal, longi_decimal = convert_coordinates(
+            latitude,
+            longitude
+        )
+
+        display_gps(
+            gps_data,
+            lat_decimal,
+            longi_decimal
+        )
+
+        # Zapis danych do SQLite
+        store_data(
+            connection_database,
+            all_intercepted_networks,
+            lat_decimal,
+            longi_decimal
+        )
+
+    else:
+        display_gps(gps_data)
+
+    # Wyświetlenie sieci
     display_networks(all_intercepted_networks)
 
     time.sleep(0.5)
-
-
-# ========== DEBUG ==========
-# print("NETWORK".center(width, "="))
-# print(fields[1].center(width))
