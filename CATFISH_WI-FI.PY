@@ -7,13 +7,14 @@ import time
 width = os.get_terminal_size().columns
 
 ##########################################################
-#FUNKCJE 
+# FUNKCJE
 ##########################################################
 
 
 def init_database():
-    connection= sqlite3.connect("DATABASES/catfish.db")
-    cursor= connection.cursor()
+    connection = sqlite3.connect("DATABASES/catfish.db")
+    cursor = connection.cursor()
+
     cursor.execute("""CREATE TABLE IF NOT EXISTS networks (
     id,
     ssid,
@@ -26,26 +27,43 @@ def init_database():
     altitude,
     timestamp
 )""")
+
     connection.commit()
-    return connection 
+    return connection
 
 
-def store_data(connection_database,all_intercepted_networks,lat_decimal, longi_decimal):
+def store_data(
+    connection_database,
+    all_intercepted_networks,
+    lat_decimal,
+    longi_decimal
+):
     for network in all_intercepted_networks:
-     ssid= network[1]
-     bssid= network[0]
-     channel= network[3]
-     signal= network[6]
-     security=network[8:]
-     cursor= connection_database.cursor()
-     cursor.execute(
-    """INSERT INTO networks
-    (ssid, bssid, channel, signal, security)
-    VALUES (?, ?, ?, ?, ?)""",
-    (ssid, bssid, channel, signal, ' '.join(security))
-)
+
+        ssid = network[1]
+        bssid = network[0]
+        channel = network[3]
+        signal = network[6]
+        security = network[8:]
+
+        cursor = connection_database.cursor()
+
+        cursor.execute(
+            """INSERT INTO networks
+            (ssid, bssid, channel, signal, security)
+            VALUES (?, ?, ?, ?, ?)""",
+            (
+                ssid,
+                bssid,
+                channel,
+                signal,
+                ' '.join(security)
+            )
+        )
+
 
 def scan_wifi():
+
     results_wifi = subprocess.run(
         ["nmcli", "device", "wifi", "list"],
         capture_output=True,
@@ -56,6 +74,7 @@ def scan_wifi():
     all_intercepted_networks = []
 
     for line in wifi_list[1:]:
+
         fields = line.split()
         all_intercepted_networks.append(fields)
 
@@ -63,12 +82,15 @@ def scan_wifi():
 
 
 def scan_gps():
+
     gps_file = open("/dev/ttyACM0")
 
     while True:
+
         gps_line = gps_file.readline()
 
         if gps_line.startswith("$GPGGA"):
+
             gps_fields = gps_line.split(",")
 
             latitude = gps_fields[2]
@@ -93,6 +115,7 @@ def scan_gps():
 
 
 def convert_coordinates(latitude, longitude):
+
     # Konwersja latitude
     lat_degrees = int(latitude[0:2])
     lat_minutes = float(latitude[2:])
@@ -108,7 +131,12 @@ def convert_coordinates(latitude, longitude):
     return lat_decimal, longi_decimal
 
 
-def display_gps(gps_data, lat_decimal=None, longi_decimal=None):
+def display_gps(
+    gps_data,
+    lat_decimal=None,
+    longi_decimal=None
+):
+
     (
         latitude,
         latitude_direction,
@@ -122,17 +150,75 @@ def display_gps(gps_data, lat_decimal=None, longi_decimal=None):
     print("===== GPS =====")
 
     if fix == "1":
-        print(f"Latitude:   {lat_decimal:.6f} {latitude_direction}")
-        print(f"Longitude:  {longi_decimal:.6f} {longitude_direction}")
+
+        print(
+            f"Latitude:   {lat_decimal:.6f} "
+            f"{latitude_direction}"
+        )
+
+        print(
+            f"Longitude:  {longi_decimal:.6f} "
+            f"{longitude_direction}"
+        )
+
         print(f"Fix:        {fix}")
         print(f"Satellites: {satellites}")
         print(f"Altitude:   {altitude} m")
+
     else:
+
         print("NO SIGNAL WAITING FOR GPS FIX")
+
+
+##########################################################
+# TOP 5 NAJSILNIEJSZYCH SIECI
+##########################################################
+
+
+def strongest_networks(all_intercepted_networks):
+
+    strongest = sorted(
+        all_intercepted_networks,
+        key=lambda network: int(network[6]),
+        reverse=True
+    )
+
+    return strongest[:5]
+
+
+##########################################################
+# STATYSTYKI
+##########################################################
+
+
+def display_statistics(connection_database, gps_data):
+
+    cursor = connection_database.cursor()
+
+    cursor.execute("SELECT COUNT(*) FROM networks")
+
+    captured = cursor.fetchone()[0]
+
+    fix = gps_data[4]
+    satellites = gps_data[5]
+    altitude = gps_data[6]
+
+    print()
+    print("===== STATISTICS =====")
+    print(f"Captured records: {captured}")
+    print(f"GPS FIX:          {fix}")
+    print(f"Satellites:       {satellites}")
+    print(f"Altitude:         {altitude} m")
+
+
+##########################################################
+# WYŚWIETLANIE SIECI
+##########################################################
 
 
 def display_networks(all_intercepted_networks):
 
+    print()
     print(" CATFISH WI-FI ".center(width, "="))
     print(" CREATED BY DARK SENTINEL ".center(width, "="))
 
@@ -161,19 +247,34 @@ def display_networks(all_intercepted_networks):
             f"{' '.join(every_network[8:])}"
         )
 
-connection_database= init_database()
+
 ##########################################################
-#PĘTLA
+# BAZA DANYCH
 ##########################################################
+
+
+connection_database = init_database()
+
+
+##########################################################
+# PĘTLA
+##########################################################
+
 
 while True:
 
     os.system("clear")
 
-    # Skan Wi-Fi
+    # ==========================================
+    # SKAN WI-FI
+    # ==========================================
+
     all_intercepted_networks = scan_wifi()
 
-    # Skan GPS
+    # ==========================================
+    # SKAN GPS
+    # ==========================================
+
     gps_data = scan_gps()
 
     (
@@ -186,7 +287,10 @@ while True:
         altitude
     ) = gps_data
 
-    # Konwersja współrzędnych tylko gdy GPS ma FIX
+    # ==========================================
+    # GPS FIX
+    # ==========================================
+
     if fix == "1":
 
         lat_decimal, longi_decimal = convert_coordinates(
@@ -209,9 +313,30 @@ while True:
         )
 
     else:
+
         display_gps(gps_data)
 
-    # Wyświetlenie sieci
-    display_networks(all_intercepted_networks)
+    # ==========================================
+    # TOP 5 NAJSILNIEJSZYCH SIECI
+    # ==========================================
+
+    strongest = strongest_networks(
+        all_intercepted_networks
+    )
+
+    # ==========================================
+    # WYŚWIETLENIE TOP 5
+    # ==========================================
+
+    display_networks(strongest)
+
+    # ==========================================
+    # STATYSTYKI
+    # ==========================================
+
+    display_statistics(
+        connection_database,
+        gps_data
+    )
 
     time.sleep(0.5)
