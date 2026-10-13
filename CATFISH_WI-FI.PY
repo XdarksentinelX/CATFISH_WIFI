@@ -32,34 +32,46 @@ def init_database():
     return connection
 
 
+
 def store_data(
     connection_database,
     all_intercepted_networks,
     lat_decimal,
-    longi_decimal
+    longi_decimal,
+    altitude
 ):
+    cursor = connection_database.cursor()
+
     for network in all_intercepted_networks:
+        if len(network) < 9:
+            continue
 
         ssid = network[1]
         bssid = network[0]
         channel = network[3]
         signal = network[6]
-        security = network[8:]
-
-        cursor = connection_database.cursor()
+        security = " ".join(network[8:])
 
         cursor.execute(
-            """INSERT INTO networks
-            (ssid, bssid, channel, signal, security)
-            VALUES (?, ?, ?, ?, ?)""",
+            """
+            INSERT INTO networks
+            (ssid, bssid, channel, signal, security,
+             latitude, longitude, altitude, timestamp)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+            """,
             (
                 ssid,
                 bssid,
                 channel,
                 signal,
-                ' '.join(security)
+                security,
+                lat_decimal,
+                longi_decimal,
+                float(altitude)
             )
         )
+
+    connection_database.commit()
 
 
 def scan_wifi():
@@ -309,7 +321,8 @@ while True:
             connection_database,
             all_intercepted_networks,
             lat_decimal,
-            longi_decimal
+            longi_decimal,
+            altitude
         )
 
     else:
